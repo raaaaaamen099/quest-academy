@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <!-- PWA & App Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Academy</title>
+    <!-- 紙吹雪ライブラリ -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-orange: #ff9800;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-purple: #c084fc;
+            --accent-gold: #fbbf24;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            text-align: center;
+            padding: 20px 10px;
+            background: radial-gradient(circle at top, #1e1b4b, var(--bg-color));
+            color: var(--text-main);
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 24px;
+            max-width: 380px;
+            margin: 0 auto 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            position: relative;
+        }
+
+        .monster-card-frame {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 2px solid var(--accent-blue);
+            border-radius: 16px;
+            padding: 15px;
+            margin: 15px 0;
+            box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.2);
+            position: relative;
+        }
+
+        .monster-icon {
+            font-size: 85px;
+            line-height: 1;
+            margin: 5px 0;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
+            transition: transform 0.3s ease;
+        }
+        .monster-icon.bounce { animation: bounce 0.6s ease infinite alternate; }
+        @keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+
+        .status-container { background: rgba(15, 23, 42, 0.6); padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
+        .status-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-bottom: 6px; }
+        .bar-bg { background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; }
+        .bar-fill-player { background: linear-gradient(90deg, #4ade80, #22c55e); height: 100%; width: 0%; transition: width 0.4s ease-out; box-shadow: 0 0 8px #4ade80; }
+        .bar-fill-monster { background: linear-gradient(90deg, #38bdf8, #0284c7); height: 100%; width: 0%; transition: width 0.4s ease-out; box-shadow: 0 0 8px #38bdf8; }
+
+        .btn {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+            border: none;
+            padding: 16px 30px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 900;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(249, 115, 22, 0.4);
+            transition: transform 0.1s, box-shadow 0.2s;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-stamina { background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); font-size: 14px; padding: 10px; margin-bottom: 15px; }
+        .btn-complete { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4); display: none; margin-top: 10px; }
+        .btn-gacha-normal { background: linear-gradient(135deg, #0284c7, #2563eb); box-shadow: 0 8px 20px rgba(2, 132, 199, 0.4); }
+        .btn-gacha-rare { background: linear-gradient(135deg, #c084fc, #9333ea); box-shadow: 0 8px 20px rgba(192, 132, 252, 0.4); border: 2px solid var(--accent-gold); }
+
+        .task-box { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--accent-gold); padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 15px; font-weight: bold; color: #fef08a; line-height: 1.5; }
+        .audio-tools { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+        .tool-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 15px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 12px; color: var(--text-main); }
+        .tool-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .section-box { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--border-color); padding: 20px; border-radius: 24px; max-width: 380px; margin: 0 auto 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: left; }
+        .section-title { font-size: 16px; font-weight: 900; margin: 0 0 15px 0; text-align: center; letter-spacing: 1px; color: var(--accent-gold); }
+
+        .collection-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .collection-card { background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 12px; text-align: center; width: 80px; border: 2px solid var(--border-color); cursor: pointer; position: relative; }
+        .collection-card.active { border-color: var(--accent-orange); background: rgba(249, 115, 22, 0.15); box-shadow: 0 0 10px rgba(249, 115, 22, 0.4); }
+        .collection-card.rarity-SSR { border-color: var(--accent-gold); background: rgba(251, 191, 36, 0.15); box-shadow: 0 0 12px rgba(251, 191, 36, 0.5); }
+        .collection-card.locked { opacity: 0.3; filter: grayscale(100%); }
+        .collection-icon { font-size: 32px; }
+        .collection-name { font-size: 10px; font-weight: bold; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .collection-lv { font-size: 10px; color: var(--accent-blue); font-weight: bold; }
+
+        .difficulty-tag { font-size: 11px; background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; display: inline-block; font-weight: bold; border: 1px solid rgba(56, 189, 248, 0.4); }
+        .streak-badge { font-size: 11px; font-weight: bold; color: #f97316; background: rgba(249, 115, 22, 0.2); padding: 4px 10px; border-radius: 12px; display: inline-block; margin-left: 6px; border: 1px solid rgba(249, 115, 22, 0.4); }
+        .event-banner { background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(249, 115, 22, 0.2)); border: 1px solid var(--accent-gold); padding: 10px; border-radius: 12px; margin-bottom: 15px; font-size: 12px; font-weight: bold; color: var(--accent-gold); text-align: center; }
+
+        .course-card { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 15px; padding: 15px; margin-bottom: 12px; text-align: left; cursor: pointer; transition: all 0.2s; }
+        .course-card:hover { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }
+        .course-header { font-weight: bold; font-size: 16px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+        .course-desc { font-size: 12px; color: var(--text-sub); margin-top: 5px; }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; z-index: 1000; }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+        .overlay-title { font-size: 28px; font-weight: 900; letter-spacing: 2px; color: var(--accent-gold); text-shadow: 0 0 20px rgba(251, 191, 36, 0.8); margin-bottom: 10px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .overlay-icon { font-size: 100px; margin: 15px 0; animation: pulseGlow 1.5s infinite alternate; }
+        .overlay-desc { font-size: 15px; font-weight: bold; margin-bottom: 25px; max-width: 300px; line-height: 1.5; color: var(--text-sub); }
+        .overlay-btn { background: var(--accent-orange); color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(249, 115, 22, 0.6); }
+
+        @keyframes popIn { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes pulseGlow { 0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(255,255,255,0.4)); } 100% { transform: scale(1.1); filter: drop-shadow(0 0 30px rgba(251, 191, 36, 0.9)); } }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" class="overlay">
+        <div id="overlay-title" class="overlay-title">LEVEL UP!</div>
+        <div id="overlay-icon" class="overlay-icon">✨</div>
+        <div id="overlay-desc" class="overlay-desc">プレイヤーレベルが上がった！</div>
+        <button class="overlay-btn" onclick="closeOverlay()">OK</button>
+    </div>
+
+    <div id="course-modal" class="overlay">
+        <h2 style="margin-bottom: 5px; color: var(--accent-gold);">SELECT YOUR COURSE</h2>
+        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">あなたの英語レベルと初期パートナーを選ぼう！</p>
+        
+        <div style="width: 100%; max-width: 340px;">
+            <div class="course-card" onclick="selectCourse('beginner')">
+                <div class="course-header">
+                    <span>🔰 Beginner（初級）</span>
+                    <span style="font-size:24px;">🐲</span>
+                </div>
+                <div class="course-desc">日常挨拶・自己紹介。相棒: Pip (風属性)</div>
+            </div>
+
+            <div class="course-card" onclick="selectCourse('intermediate')">
+                <div class="course-header">
+                    <span>⚔️ Intermediate（中級）</span>
+                    <span style="font-size:24px;">🦅</span>
+                </div>
+                <div class="course-desc">カフェ注文・道案内・感情表現。相棒: Gryphon (光属性)</div>
+            </div>
+
+            <div class="course-card" onclick="selectCourse('advanced')">
+                <div class="course-header">
+                    <span>👑 Advanced（上級）</span>
+                    <span style="font-size:24px;">🐺</span>
+                </div>
+                <div class="course-desc">即興ディベート・ビジネス交渉。相棒: Fenrir (氷属性)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin: 0 0 10px 0; letter-spacing: 2px; background: linear-gradient(135deg, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">QUEST ACADEMY</h2>
+        
+        <div id="event-banner" class="event-banner">🎉 本日のイベント: GOLDラッシュ！ (獲得GOLD 1.5倍)</div>
+
+        <div>
+            <span id="course-badge" class="difficulty-tag">コース: 未選択</span>
+            <span id="streak-badge" class="streak-badge">🔥 0日連続</span>
+        </div>
+        
+        <div class="monster-card-frame">
+            <div class="monster-icon bounce" id="monster-icon">🐲</div>
+            <h3 id="monster-name" style="margin: 0 0 2px 0; color: var(--text-main);">Pip</h3>
+            <div id="monster-lv-text" style="font-size: 12px; font-weight: bold; color: var(--accent-blue); margin-bottom: 8px;">Monster Lv.1</div>
+
+            <div class="status-container">
+                <div class="status-row" style="color: var(--accent-blue);">
+                    <span>MONSTER EXP</span>
+                    <span id="m-exp-text">0 / 100</span>
+                </div>
+                <div class="bar-bg">
+                    <div id="m-exp-bar" class="bar-fill-monster"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-container">
+            <div class="status-row">
+                <span>PLAYER LV: <span id="player-lv" style="color:var(--accent-green);">1</span></span>
+                <span>STAMINA: <span id="stamina-text" style="color:var(--accent-blue);">5/5</span></span>
+                <span>GOLD: <span id="player-gold" style="color:var(--accent-gold);">0</span> G</span>
+            </div>
+            <div class="status-row" style="color: var(--text-sub);">
+                <span>PLAYER EXP</span>
+                <span id="exp-text">0 / 100</span>
+            </div>
+            <div class="bar-bg">
+                <div id="exp-bar" class="bar-fill-player"></div>
+            </div>
+        </div>
+
+        <button id="start-btn" class="btn" onclick="generateTask()">1分スピーキングクエスト (⚡️1)</button>
+        <button id="recover-btn" class="btn btn-stamina" onclick="recoverStamina()">⚡️ スタミナ全回復 (100 G)</button>
+
+        <div id="task-area" style="display:none;">
+            <div id="diff-tag" class="difficulty-tag">🎤 SPEAKING TASK</div>
+            <div class="task-box">
+                <div id="task-type" style="font-size:11px; color:var(--accent-gold); margin-bottom:5px;">[ 🎤 リピーティング ]</div>
+                <p id="task-text" style="margin:0;">ここにスピーキング課題が出ます</p>
+                <div class="audio-tools">
+                    <button class="tool-btn" onclick="speakTask()">🔊 お手本を聞く</button>
+                    <button class="tool-btn" id="mic-btn" onclick="startSpeechRecognition()">🎙️ 声に出して発音採点</button>
+                </div>
+                <div id="speech-result" style="font-size: 12px; color: var(--accent-blue); margin-top: 8px; font-weight: bold;"></div>
+            </div>
+            <button class="btn btn-complete" id="complete-btn" onclick="completeTask()">クエスト完了！</button>
+        </div>
+    </div>
+
+    <div class="section-box">
+        <div class="section-title">📖 MONSTER INDEX (図鑑・仲間)</div>
+        <div id="collection-list" class="collection-grid"></div>
+    </div>
+
+    <div class="section-box" style="text-align: center;">
+        <div class="section-title">🔮 MONSTER SCOUT GACHA</div>
+        
+        <button class="btn btn-gacha-normal" onclick="drawGacha('normal')">ノーマルガチャ (300 G)</button>
+        <button class="btn btn-gacha-rare" onclick="drawGacha('rare')">✨ SSR 確定レアガチャ (1000 G)</button>
+        
+        <button onclick="openCourseModal()" style="margin-top: 15px; background: none; border: none; color: var(--accent-blue); font-size: 12px; font-weight: bold; text-decoration: underline; cursor: pointer; width: 100%;">コース（難易度）を変更する</button>
+        <button onclick="resetData()" style="margin-top: 10px; background: none; border: none; color: var(--text-sub); font-size: 11px; text-decoration: underline; cursor: pointer; width: 100%;">データリセット</button>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'complete') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'fanfare') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.12);
+                osc.frequency.setValueAtTime(783.99, now + 0.24);
+                osc.frequency.setValueAtTime(1046.50, now + 0.36);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                osc.start(now);
+                osc.stop(now + 0.8);
+            } else if (type === 'penalty') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.setValueAtTime(150, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        const starters = {
+            beginner: { id: 'Pip', name: 'Pip', icon: '🐲', evoName: 'Ancient Pip', evoIcon: '🐉', rarity: 'N', element: '🍃 風' },
+            intermediate: { id: 'Gryphon', name: 'Gryphon', icon: '🦅', evoName: 'Sky Gryphon', evoIcon: '🦅✨', rarity: 'N', element: '✨ 光' },
+            advanced: { id: 'Fenrir', name: 'Fenrir', icon: '🐺', evoName: 'Shadow Fenrir', evoIcon: '🐺❄️', rarity: 'N', element: '❄️ 氷' }
+        };
+
+        const allMonstersMaster = [
+            { id: 'Pip', name: 'Pip', icon: '🐲', evoName: 'Ancient Pip', evoIcon: '🐉', rarity: 'N', element: '🍃 風' },
+            { id: 'Gryphon', name: 'Gryphon', icon: '🦅', evoName: 'Sky Gryphon', evoIcon: '🦅✨', rarity: 'N', element: '✨ 光' },
+            { id: 'Fenrir', name: 'Fenrir', icon: '🐺', evoName: 'Shadow Fenrir', evoIcon: '🐺❄️', rarity: 'N', element: '❄️ 氷' },
+            { id: 'Embir', name: 'Embir', icon: '🦅', evoName: 'Flame Embir', evoIcon: '🦅🔥', rarity: 'R', element: '🔥 火' },
+            { id: 'Boltusk', name: 'Boltusk', icon: '🐗', evoName: 'Thunder Boltusk', evoIcon: '⚡️🐗', rarity: 'R', element: '⚡️ 雷' },
+            { id: 'Frostwing', name: 'Frostwing', icon: '🦉', evoName: 'Glacier Frostwing', evoIcon: '❄️🦉', rarity: 'R', element: '❄️ 氷' },
+            { id: 'Ignis', name: 'Ignis', icon: '🦊', evoName: 'Nine-Tailed Ignis', evoIcon: '🦊🔥', rarity: 'R', element: '🔥 火' },
+            { id: 'Bubbles', name: 'Bubbles', icon: '🐬', evoName: 'Ocean Bubbles', evoIcon: '🐬🌊', rarity: 'R', element: '💧 水' },
+            { id: 'Terra', name: 'Terra', icon: '🐢', evoName: 'World Terra', evoIcon: '🐢🌍', rarity: 'R', element: '🪴 地' },
+            { id: 'Shenron', name: 'Shenron', icon: '🐉', evoName: 'Divine Shenron', evoIcon: '🐉✨', rarity: 'SSR', element: '✨ 龍' },
+            { id: 'Celestia', name: 'Celestia', icon: '🦄', evoName: 'Starlight Celestia', evoIcon: '🦄🌟', rarity: 'SSR', element: '🌟 星' },
+            { id: 'Phoenix', name: 'Phoenix', icon: '🔥', evoName: 'Eternal Phoenix', evoIcon: '🔥🦅', rarity: 'SSR', element: '🔥 神火' }
+        ];
+
+        const normalGachaPool = allMonstersMaster.filter(m => m.rarity === 'R');
+        const rareGachaPool = allMonstersMaster.filter(m => m.rarity === 'SSR');
+
+        // スピーキング実践データベース (3パターン)
+        const taskDatabase = {
+            beginner: [
+                { type: "🎤 リピーティング", text: "Can I get a cup of coffee, please?" },
+                { type: "⚡ 瞬時英訳", text: "「はじめまして、ゆーすけです！」を英語で声に出そう！ (Nice to meet you, I'm Yusuke!)" },
+                { type: "💬 応答スピーキング", text: "「How are you feeling today?」に対して「I'm great!」と答えてみよう！" },
+                { type: "🎤 リピーティング", text: "Where is the nearest station?" }
+            ],
+            intermediate: [
+                { type: "🎤 リピーティング", text: "To be honest, I completely agree with your point." },
+                { type: "⚡ 瞬時英訳", text: "「それ、すごくイイね！」とテンション高く相づちを打とう！ (That sounds awesome!)" },
+                { type: "💬 応答スピーキング", text: "「What do you usually do on weekends?」に英語で即答してみよう！" }
+            ],
+            advanced: [
+                { type: "🎤 リピーティング", text: "From a broader perspective, we should reconsider our current strategy." },
+                { type: "⚡ 瞬時英訳", text: "「一理ありますが、別の視点もあります」とビジネスで反論しよう！ (That's a valid point, however...)" },
+                { type: "💬 応答スピーキング", text: "「What is your primary goal for this project?」に英語で自信を持って答えよう！" }
+            ]
+        };
+
+        let state = JSON.parse(localStorage.getItem('questAppData')) || null;
+        let currentRawTask = "";
+
+        function saveData() {
+            localStorage.setItem('questAppData', JSON.stringify(state));
+        }
+
+        // ログインボーナスチェック（確実に判定）
+        function checkDailyBonus() {
+            if (!state) return;
+            const today = new Date().toDateString();
+
+            if (!state.lastLoginDate || state.lastLoginDate !== today) {
+                state.lastLoginDate = today;
+                state.gold = (state.gold || 0) + 150;
+                state.stamina = 5; 
+                saveData();
+
+                setTimeout(() => {
+                    triggerOverlay("🎁 DAILY BONUS! 🎁", "💎", "本日初のログイン！<br>+150 GOLD & スタミナ全回復！");
+                }, 600);
+            }
+        }
+
+        function checkStreakPenalty() {
+            if (!state || !state.lastCompletedDate) return;
+
+            const today = new Date();
+            const lastDate = new Date(state.lastCompletedDate);
+            
+            const timeDiff = today.setHours(0,0,0,0) - lastDate.setHours(0,0,0,0);
+            const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 1 && state.streak > 0) {
+                const lostGold = Math.min(state.gold, 100);
+                state.streak = 0;
+                state.gold -= lostGold;
+                saveData();
+
+                setTimeout(() => {
+                    playSound('penalty');
+                    triggerOverlay("⚠️ STREAK BROKEN! ⚠️", "💔", "昨日未プレイのため連勝ストリークがリセットされました！ ( - " + lostGold + " G )");
+                }, 500);
+            }
+        }
+
+        function checkFirstTime() {
+            if (!state) {
+                document.getElementById('course-modal').classList.add('active');
+            } else {
+                checkStreakPenalty();
+                checkDailyBonus();
+                updateUI();
+            }
+        }
+
+        function openCourseModal() {
+            playSound('click');
+            document.getElementById('course-modal').classList.add('active');
+        }
+
+        function selectCourse(courseKey) {
+            playSound('click');
+            const starter = starters[courseKey];
+            const todayStr = new Date().toDateString();
+
+            if (!state) {
+                state = {
+                    course: courseKey,
+                    lv: 1,
+                    exp: 0,
+                    gold: 150, // 初回プレゼント
+                    stamina: 5,
+                    streak: 0,
+                    lastCompletedDate: null,
+                    lastLoginDate: todayStr,
+                    currentMonsterIndex: 0,
+                    myMonsters: [
+                        { id: starter.id, name: starter.name, icon: starter.icon, lv: 1, exp: 0, evoName: starter.evoName, evoIcon: starter.evoIcon, isEvolved: false, rarity: starter.rarity, element: starter.element }
+                    ]
+                };
+            } else {
+                state.course = courseKey;
+                const existsIndex = state.myMonsters.findIndex(m => m.id === starter.id);
+                if (existsIndex !== -1) {
+                    state.currentMonsterIndex = existsIndex;
+                } else {
+                    state.myMonsters.push({
+                        id: starter.id, name: starter.name, icon: starter.icon, lv: 1, exp: 0, evoName: starter.evoName, evoIcon: starter.evoIcon, isEvolved: false, rarity: starter.rarity, element: starter.element
+                    });
+                    state.currentMonsterIndex = state.myMonsters.length - 1;
+                }
+            }
+            saveData();
+            document.getElementById('course-modal').classList.remove('active');
+            updateUI();
+            checkDailyBonus();
+        }
+
+        function getReqExp(level) {
+            return level * 100;
+        }
+
+        function generateTask() {
+            if (state.stamina <= 0) {
+                playSound('click');
+                alert("スタミナが足りません！ゴールドを使って回復しよう！");
+                return;
+            }
+
+            playSound('click');
+            state.stamina -= 1;
+            saveData();
+            updateUI();
+
+            const currentPool = taskDatabase[state.course] || taskDatabase.beginner;
+            const randomIndex = Math.floor(Math.random() * currentPool.length);
+            const selectedTaskObj = currentPool[randomIndex];
+            currentRawTask = selectedTaskObj.text;
+
+            document.getElementById('task-type').innerText = "[ " + selectedTaskObj.type + " ]";
+            document.getElementById('task-text').innerText = "「 " + currentRawTask + " 」";
+            document.getElementById('speech-result').innerText = "";
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('recover-btn').style.display = 'none';
+            document.getElementById('task-area').style.display = 'block';
+            document.getElementById('complete-btn').style.display = 'block';
+        }
+
+        function recoverStamina() {
+            if (state.stamina >= 5) {
+                playSound('click');
+                alert("スタミナはすでに満タンです！");
+                return;
+            }
+            if (state.gold < 100) {
+                playSound('click');
+                alert("ゴールドが足りません！ (100 G必要)");
+                return;
+            }
+
+            playSound('fanfare');
+            state.gold -= 100;
+            state.stamina = 5;
+            saveData();
+            updateUI();
+            alert("⚡️ スタミナを全回復しました！");
+        }
+
+        function speakTask() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(currentRawTask);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+
+                const voices = window.speechSynthesis.getVoices();
+                const bestVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Alex') || v.name.includes('Natural') || v.name.includes('Karen') || v.name.includes('Google US English')));
+                
+                if (bestVoice) {
+                    utterance.voice = bestVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("お使いのブラウザは音声読み上げに対応していません。");
+            }
+        }
+
+        function startSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("お使いのブラウザは音声認識に対応していません。（Chrome/Safari推奨）");
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            document.getElementById('speech-result').innerText = "🎙️ 聞き取り中... 声に出して喋ってください！";
+
+            recognition.onresult = function(event) {
+                const spokenText = event.results[0][0].transcript;
+                document.getElementById('speech-result').innerHTML = "🌟 EXCELLENT! 口から英語が出たね！<br>(認識: 「" + spokenText + "」)";
+                playSound('complete');
+            };
+
+            recognition.onerror = function() {
+                document.getElementById('speech-result').innerText = "❌ 聞き取れませんでした。もう一度声に出そう！";
+            };
+
+            recognition.start();
+        }
+
+        function completeTask() {
+            playSound('complete');
+            const gainedExp = 50;
+            const gainedGold = 75;
+            state.exp += gainedExp;
+            state.gold += gainedGold;
+
+            const today = new Date().toDateString();
+            if (state.lastCompletedDate !== today) {
+                state.streak = (state.streak || 0) + 1;
+                state.lastCompletedDate = today;
+            }
+
+            let playerLeveledUp = false;
+            let monsterLeveledUp = false;
+            let monsterEvolved = false;
+
+            let reqPlayerExp = getReqExp(state.lv);
+            if (state.exp >= reqPlayerExp) {
+                state.lv += 1;
+                state.exp -= reqPlayerExp;
+                playerLeveledUp = true;
+            }
+
+            let activeMonster = state.myMonsters[state.currentMonsterIndex];
+            activeMonster.exp += gainedExp;
+            let reqMonsterExp = getReqExp(activeMonster.lv);
+
+            if (activeMonster.exp >= reqMonsterExp) {
+                activeMonster.lv += 1;
+                activeMonster.exp -= reqMonsterExp;
+                monsterLeveledUp = true;
+                
+                if (activeMonster.lv >= 3 && !activeMonster.isEvolved) {
+                    activeMonster.isEvolved = true;
+                    activeMonster.name = activeMonster.evoName;
+                    activeMonster.icon = activeMonster.evoIcon;
+                    monsterEvolved = true;
+                }
+            }
+
+            saveData();
+            updateUI();
+
+            document.getElementById('start-btn').style.display = 'block';
+            document.getElementById('recover-btn').style.display = 'block';
+            document.getElementById('task-area').style.display = 'none';
+
+            if (monsterEvolved) {
+                triggerOverlay("✨ MONSTER EVOLUTION! ✨", activeMonster.icon, activeMonster.name + " に進化を遂げた！");
+            } else if (playerLeveledUp) {
+                triggerOverlay("★ PLAYER LEVEL UP! ★", "👑", "プレイヤーレベルが " + state.lv + " に上がった！");
+            } else if (monsterLeveledUp) {
+                triggerOverlay("🐾 MONSTER LEVEL UP! 🐾", activeMonster.icon, activeMonster.name + " のレベルが " + activeMonster.lv + " に上がった！");
+            }
+        }
+
+        function drawGacha(type) {
+            const price = type === 'rare' ? 1000 : 300;
+
+            if (state.gold < price) {
+                playSound('click');
+                alert("ゴールドが足りません！ (" + price + " G必要)");
+                return;
+            }
+
+            const pool = type === 'rare' ? rareGachaPool : normalGachaPool;
+            const unowned = pool.filter(m => !state.myMonsters.some(myM => myM.id === m.id));
+
+            if (unowned.length === 0) {
+                playSound('click');
+                alert("このガチャのすべてのモンスターを獲得済みです！");
+                return;
+            }
+
+            state.gold -= price;
+
+            const randomIndex = Math.floor(Math.random() * unowned.length);
+            const drawn = unowned[randomIndex];
+
+            state.myMonsters.push({
+                id: drawn.id,
+                name: drawn.name,
+                icon: drawn.icon,
+                lv: 1,
+                exp: 0,
+                evoName: drawn.evoName,
+                evoIcon: drawn.evoIcon,
+                isEvolved: false,
+                rarity: drawn.rarity,
+                element: drawn.element
+            });
+
+            state.currentMonsterIndex = state.myMonsters.length - 1;
+            saveData();
+            updateUI();
+
+            const title = drawn.rarity === 'SSR' ? "🌟 LEGENDARY SSR SUMMON! 🌟" : "🔮 NEW ALLY SUMMONED! 🔮";
+            triggerOverlay(title, drawn.icon, drawn.name + " を召喚した！ (" + drawn.element + ")");
+        }
+
+        function triggerOverlay(title, icon, desc) {
+            playSound('fanfare');
+            document.getElementById('overlay-title').innerText = title;
+            document.getElementById('overlay-icon').innerText = icon;
+            document.getElementById('overlay-desc').innerHTML = desc;
+            document.getElementById('overlay').classList.add('active');
+
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function closeOverlay() {
+            playSound('click');
+            document.getElementById('overlay').classList.remove('active');
+        }
+
+        function selectMonster(index) {
+            playSound('click');
+            state.currentMonsterIndex = index;
+            saveData();
+            updateUI();
+        }
+
+        function resetData() {
+            playSound('click');
+            if (confirm("本当にデータを初期化しますか？")) {
+                localStorage.removeItem('questAppData');
+                state = null;
+                location.reload();
+            }
+        }
+
+        // 図図鑑（図鑑形式）UIの描画
+        function updateUI() {
+            if (!state) return;
+
+            const courseLabels = { beginner: '🔰 初級コース', intermediate: '⚔️ 中級コース', advanced: '👑 上級コース' };
+            document.getElementById('course-badge').innerText = courseLabels[state.course] || '初級コース';
+            document.getElementById('streak-badge').innerText = "🔥 " + (state.streak || 0) + "日連続";
+
+            const reqPlayerExp = getReqExp(state.lv);
+            document.getElementById('player-lv').innerText = state.lv;
+            document.getElementById('player-gold').innerText = state.gold;
+            document.getElementById('stamina-text').innerText = (state.stamina !== undefined ? state.stamina : 5) + " / 5";
+            document.getElementById('exp-text').innerText = state.exp + " / " + reqPlayerExp;
+            document.getElementById('exp-bar').style.width = Math.min((state.exp / reqPlayerExp) * 100, 100) + "%";
+
+            const activeMonster = state.myMonsters[state.currentMonsterIndex];
+            const reqMonsterExp = getReqExp(activeMonster.lv);
+
+            document.getElementById('monster-name').innerText = activeMonster.name + " (" + (activeMonster.element || '無') + ")";
+            document.getElementById('monster-icon').innerText = activeMonster.icon;
+            document.getElementById('monster-lv-text').innerText = "Monster Lv." + activeMonster.lv + (activeMonster.isEvolved ? " (FINAL)" : "");
+            document.getElementById('m-exp-text').innerText = activeMonster.exp + " / " + reqMonsterExp;
+            document.getElementById('m-exp-bar').style.width = Math.min((activeMonster.exp / reqMonsterExp) * 100, 100) + "%";
+
+            // 全マスターリストを参照し、未所持はシルエット表示する「図鑑形式」のグリッド生成
+            const listContainer = document.getElementById('collection-list');
+            listContainer.innerHTML = '';
+            
+            allMonstersMaster.forEach((masterM) => {
+                const ownedIndex = state.myMonsters.findIndex(m => m.id === masterM.id);
+                const isOwned = ownedIndex !== -1;
+
+                if (isOwned) {
+                    const m = state.myMonsters[ownedIndex];
+                    const isSelected = ownedIndex === state.currentMonsterIndex ? 'active' : '';
+                    const isSSR = m.rarity === 'SSR' ? 'rarity-SSR' : '';
+                    const cardHtml = `
+                        <div class="collection-card ${isSelected} ${isSSR}" onclick="selectMonster(${ownedIndex})">
+                            <div class="collection-icon">${m.icon}</div>
+                            <div class="collection-name">${m.name}</div>
+                            <div class="collection-lv">Lv.${m.lv}</div>
+                        </div>
+                    `;
+                    listContainer.innerHTML += cardHtml;
+                } else {
+                    // 未所持（ロック）表示
+                    const cardHtml = `
+                        <div class="collection-card locked">
+                            <div class="collection-icon">❓</div>
+                            <div class="collection-name">${masterM.rarity}</div>
+                            <div class="collection-lv">???</div>
+                        </div>
+                    `;
+                    listContainer.innerHTML += cardHtml;
+                }
+            });
+        }
+
+        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => {};
+        }
+
+        checkFirstTime();
+    </script>
+</body>
+</html>
